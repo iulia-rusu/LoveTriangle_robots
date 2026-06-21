@@ -1,0 +1,72 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+import math
+
+import numpy as np
+
+from .geometry import wrap_angle
+
+
+@dataclass
+class VehicleState:
+    x: float
+    y: float
+    heading: float
+    left_motor: float = 0.0
+    right_motor: float = 0.0
+    forward_speed: float = 0.0
+    angular_velocity: float = 0.0
+    prev_forward_speed: float = 0.0
+
+    @property
+    def position(self) -> np.ndarray:
+        return np.array([self.x, self.y], dtype=np.float32)
+
+
+class DifferentialDriveVehicle:
+    """Simple differential-drive vehicle model."""
+
+    def __init__(self, cfg: dict):
+        self.cfg = cfg
+        vcfg = cfg["vehicle"]
+        self.state = VehicleState(
+            x=float(vcfg["start_x"]),
+            y=float(vcfg["start_y"]),
+            heading=float(vcfg["start_heading"]),
+        )
+
+    def reset(self) -> VehicleState:
+        vcfg = self.cfg["vehicle"]
+        self.state = VehicleState(
+            x=float(vcfg["start_x"]),
+            y=float(vcfg["start_y"]),
+            heading=float(vcfg["start_heading"]),
+        )
+        return self.state
+
+    def update(self, left_motor: float, right_motor: float, dt: float) -> VehicleState:
+        vcfg = self.cfg["vehicle"]
+        clip = float(vcfg["motor_clip"])
+        max_speed = float(vcfg["max_linear_speed"])
+        wheel_base = float(vcfg["wheel_base"])
+
+        left_motor = float(np.clip(left_motor, -clip, clip))
+        right_motor = float(np.clip(right_motor, -clip, clip))
+
+        st = self.state
+        st.prev_forward_speed = st.forward_speed
+        st.left_motor = left_motor
+        st.right_motor = right_motor
+
+        v_left = left_motor * max_speed
+        v_right = right_motor * max_speed
+
+        st.forward_speed = 0.5 * (v_left + v_right)
+        st.angular_velocity = (v_right - v_left) / max(wheel_base, 1e-6)
+
+        st.heading = wrap_angle(st.heading + st.angular_velocity * dt)
+        st.x += st.forward_speed * math.cos(st.heading) * dt
+        st.y += st.forward_speed * math.sin(st.heading) * dt
+
+        return st
