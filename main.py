@@ -31,29 +31,36 @@ def main() -> None:
     reward = None
     running = True
 
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+    try:
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
                     running = False
-                elif event.key == pygame.K_r:
+
+                elif event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_ESCAPE, pygame.K_q):
+                        running = False
+                    elif event.key == pygame.K_r:
+                        env.reset()
+                        reward = None
+                    elif event.key == pygame.K_SPACE:
+                        paused = not paused
+
+            if not running:
+                break
+
+            if not paused:
+                _, reward, done, info = env.step(action=None)
+
+                if done:
+                    print(f"Episode ended: {info.done_reason}")
                     env.reset()
                     reward = None
-                elif event.key == pygame.K_SPACE:
-                    paused = not paused
 
-        if not paused:
-            _, reward, done, info = env.step(action=None)
-            if done:
-                print(f"Episode ended: {info['done_reason']}")
-                env.reset()
-                reward = None
+            view.draw(env, reward)
 
-        view.draw(env, reward)
-
-    view.close()
+    finally:
+        view.close()
 
 
 if __name__ == "__main__":

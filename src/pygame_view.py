@@ -77,10 +77,17 @@ class PygameView:
     def _draw_panel(self, env: BraitenbergEnv, reward: float | None) -> None:
         y0 = self.height_px + 8
         info = env.last_info
+
         lines = [
-            f"step={env.step_idx}  t={env.time:.1f}  condition={env.condition}  reward={0 if reward is None else reward:.3f}",
+            f"step={env.step_idx}  t={env.time:.1f}  "
+            f"condition={env.condition}  reward={0 if reward is None else reward:.3f}",
         ]
 
+        if info is not None:
+            lines.append(
+                f"left_motor={info.left_motor:.3f}  "
+                f"right_motor={info.right_motor:.3f}"
+            )
 
         for i, line in enumerate(lines):
             text = self.font.render(line, True, (20, 20, 20))
