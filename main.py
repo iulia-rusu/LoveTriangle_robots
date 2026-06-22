@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import os
+import signal
 import sys
 from pathlib import Path
 
-# Allow running without installing the package.
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 import pygame
@@ -12,6 +13,15 @@ import pygame
 from src.config import load_config, set_seed
 from src.environment import BraitenbergEnv
 from src.pygame_view import PygameView
+
+
+def hard_exit(*args):
+    print("Hard exit", flush=True)
+    os._exit(0)
+
+
+signal.signal(signal.SIGINT, hard_exit)
+signal.signal(signal.SIGTERM, hard_exit)
 
 
 def main() -> None:
@@ -29,38 +39,32 @@ def main() -> None:
 
     paused = False
     reward = None
-    running = True
 
-    try:
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                hard_exit()
 
-                elif event.type == pygame.KEYDOWN:
-                    if event.key in (pygame.K_ESCAPE, pygame.K_q):
-                        running = False
-                    elif event.key == pygame.K_r:
-                        env.reset()
-                        reward = None
-                    elif event.key == pygame.K_SPACE:
-                        paused = not paused
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_q, pygame.K_ESCAPE):
+                    hard_exit()
 
-            if not running:
-                break
+                if event.key == pygame.K_SPACE:
+                    paused = not paused
 
-            if not paused:
-                _, reward, done, info = env.step(action=None)
-
-                if done:
-                    print(f"Episode ended: {info.done_reason}")
+                if event.key == pygame.K_r:
                     env.reset()
                     reward = None
 
-            view.draw(env, reward)
+        if not paused:
+            _, reward, done, info = env.step(action=None)
 
-    finally:
-        view.close()
+            if done:
+                print(f"Episode ended: {info.done_reason}", flush=True)
+                env.reset()
+                reward = None
+
+        view.draw(env, reward)
 
 
 if __name__ == "__main__":
