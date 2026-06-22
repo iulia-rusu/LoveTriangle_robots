@@ -23,4 +23,4 @@ def set_seed(seed: int) -> None:
         import torch
         torch.manual_seed(seed)
     except Exception:
-        pass
+        pass 

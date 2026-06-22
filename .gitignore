@@ -1,0 +1,4 @@
+*.mpy_cache
+*.pyc
+*.pyo
+__pycache__/

@@ -1,0 +1,33 @@
+seed: 7
+
+simulation:
+  dt: 0.08
+  max_steps: 900
+  condition: orbit # red_only, green_only, separated, blocking, crossing, orbit
+
+arena:
+  width: 16.0
+  height: 8.0
+
+
+vehicle:
+  start_x: 0.0
+  start_y: 0.0
+  start_heading: 0.0
+  radius: 0.18
+  wheel_base: 0.42
+  max_linear_speed: 1.0
+  motor_clip: 1.0
+
+render:
+  enabled: true
+  fps: 60
+  pixels_per_unit: 95
+  show_sensor_rays: true
+  show_text: true
+
+logging:
+  enabled: true
+  log_dir: data/logs
+  model_dir: outputs/models
+  figure_dir: outputs/figures
