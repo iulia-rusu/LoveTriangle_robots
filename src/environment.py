@@ -37,7 +37,9 @@ class BraitenbergEnv:
         self.red_pos: np.ndarray | None = None
         self.green_pos: np.ndarray | None = None
         self.last_info: StepInfo | None = None
-        self.action_space = self.make_action()
+        self.action_space = None  
+        self.state = None  # Initialize the state attribute
+        self.reward = 0.0  # Initialize the reward attribute
 
     @property
     
@@ -48,17 +50,34 @@ class BraitenbergEnv:
 
 
     def reset(self):
+        self.action_space = self.make_action()
+        
         self.vehicle.reset()
         self.red_pos, self.green_pos = stimulus_positions(self.condition, self.time)
         self.step_idx = 0
         self.time = 0.0
-        return self.last_info
+        reason = "reset"
+        self.last_info = StepInfo(
+            step=self.step_idx,
+            time=self.time,
+            red_pos=self.red_pos,
+            green_pos=self.green_pos,
+            left_motor=self.vehicle.state.left_motor,
+            right_motor=self.vehicle.state.right_motor,
+            done_reason=reason,
+            vehicle_x=self.vehicle.state.x,
+            vehicle_y=self.vehicle.state.y
+
+        )
+        self.state = self.build_state()
+        return self.state,self.last_info
+
     
     def make_action(duration = 0.5):
-        actions = []
-        for i in range(-50,51):
-            for j in range(-50,51):
-                action = [i, j, duration]
+        actions = list()
+        for i in range(-50,51,10):
+            for j in range(-50,51,10):
+                action = [i, j]
                 actions.append(action)
         return actions
         
@@ -70,9 +89,22 @@ class BraitenbergEnv:
         self.step_idx += 1
         dt = float(self.cfg["simulation"]["dt"])
         self.time += dt
-        self.vehicle.update(left_motor=0.0, right_motor=0.0, dt=dt)  # No action for now
+        #action is tensor, convert to numpy array
+        if action is not None:
+            if hasattr(action, "detach"):  # PyTorch tensor
+                action = action.detach().cpu().numpy()
+
+            action = np.asarray(action).squeeze()
+           
+            left_motor = float(action[0])
+            right_motor = float(action[1])
+            left_motor, right_motor = action[0], action[1]
+        else:
+            left_motor, right_motor = 0.0, 0.0
+        self.vehicle.update(left_motor=left_motor, right_motor=right_motor, dt=dt)
         self.red_pos, self.green_pos = stimulus_positions(self.condition, self.time)
         done, reason = self._termination_reason()
+        self.reward = self.reward_function()
         self.last_info = StepInfo(
             step=self.step_idx,
             time=self.time,
@@ -86,18 +118,18 @@ class BraitenbergEnv:
 
         )
         
-        return None, 0.0, done, self.last_info
+        return self.build_state(), self.reward, done
     
     def build_state(self) -> np.ndarray:
-        x = self.vehicle.x # need to normalize this
-        y = self.vehicle.y
+        x = self.vehicle.state.x # need to normalize this
+        y = self.vehicle.state.y
         x_norm = x/self.cfg["arena"]["width"]
         y_norm = y/self.cfg["arena"]["height"]
         dt = self.cfg["simulation"]["dt"]
         last_x= self.last_info.vehicle_x
         last_y = self.last_info.vehicle_y
         agent_vel = np.sqrt((x-last_x)**2 + (y-last_y)**2)/dt
-        heading_theta = self.vehicle.heading
+        heading_theta = self.vehicle.state.heading
         sin_theta = np.sin(heading_theta)
         cos_theta = np.cos(heading_theta)
         red_x, red_y = self.red_pos
@@ -111,7 +143,7 @@ class BraitenbergEnv:
         reward = 0.0
         # Adjust this factor to control the decay rate
         red_pos, green_pos = self.red_pos, self.green_pos
-        vehicle_pos = np.array([self.vehicle.x, self.vehicle.y])
+        vehicle_pos = np.array([self.vehicle.state.x, self.vehicle.state.y])
         distance_to_green = np.linalg.norm(vehicle_pos - green_pos)
         arena_width = float(self.cfg["arena"]["width"])
         arena_height = float(self.cfg["arena"]["height"])
@@ -147,6 +179,12 @@ class BraitenbergEnv:
     
         if self.step_idx >= max_steps:
             return True, "timeout"
+        
+        if self.red_pos is not None and np.linalg.norm(st.position - self.red_pos) < radius:
+            return True, "red_collision"
+        
+        if self.green_pos is not None and np.linalg.norm(st.position - self.green_pos) < radius:
+            return True, "green_collision"
 
         return False, None
 
