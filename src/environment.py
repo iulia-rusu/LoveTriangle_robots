@@ -37,8 +37,12 @@ class BraitenbergEnv:
         self.red_pos: np.ndarray | None = None
         self.green_pos: np.ndarray | None = None
         self.last_info: StepInfo | None = None
+        self.action_space = self.make_action()
 
     @property
+    
+    
+    
     def state_dim(self) -> int:
         return 18
 
@@ -48,7 +52,17 @@ class BraitenbergEnv:
         self.red_pos, self.green_pos = stimulus_positions(self.condition, self.time)
         self.step_idx = 0
         self.time = 0.0
-        return 0
+        return self.last_info
+    
+    def make_action(duration = 0.5):
+        actions = []
+        for i in range(-50,51):
+            for j in range(-50,51):
+                action = [i, j, duration]
+                actions.append(action)
+        return actions
+        
+
 
 
     def step(self, action: np.ndarray | None = None):
@@ -73,6 +87,25 @@ class BraitenbergEnv:
         )
         
         return None, 0.0, done, self.last_info
+    
+    def build_state(self) -> np.ndarray:
+        x = self.vehicle.x # need to normalize this
+        y = self.vehicle.y
+        x_norm = x/self.cfg["arena"]["width"]
+        y_norm = y/self.cfg["arena"]["height"]
+        dt = self.cfg["simulation"]["dt"]
+        last_x= self.last_info.vehicle_x
+        last_y = self.last_info.vehicle_y
+        agent_vel = np.sqrt((x-last_x)**2 + (y-last_y)**2)/dt
+        heading_theta = self.vehicle.heading
+        sin_theta = np.sin(heading_theta)
+        cos_theta = np.cos(heading_theta)
+        agent_vel = self.last_info.
+        red_x, red_y = self.red_pos
+        green_x, green_y = self.green_pos
+
+
+        return np.array([x_norm, y_norm, sin_theta, cos_theta, agent_vel, green_x, green_y,  red_x, red_y])
         
     def _termination_reason(self) -> tuple[bool, str | None]:
         st = self.vehicle.state
