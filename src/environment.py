@@ -100,12 +100,40 @@ class BraitenbergEnv:
         heading_theta = self.vehicle.heading
         sin_theta = np.sin(heading_theta)
         cos_theta = np.cos(heading_theta)
-        agent_vel = self.last_info.
         red_x, red_y = self.red_pos
         green_x, green_y = self.green_pos
 
 
         return np.array([x_norm, y_norm, sin_theta, cos_theta, agent_vel, green_x, green_y,  red_x, red_y])
+    
+    def reward_function(self):
+        """"Decay reward function considers the distance between the agent and the green robot, as well as the distance to the arena boundaries. The reward is higher when the agent is closer to the green robot and further from the boundaries."""
+        reward = 0.0
+        # Adjust this factor to control the decay rate
+        red_pos, green_pos = self.red_pos, self.green_pos
+        vehicle_pos = np.array([self.vehicle.x, self.vehicle.y])
+        distance_to_green = np.linalg.norm(vehicle_pos - green_pos)
+        arena_width = float(self.cfg["arena"]["width"])
+        arena_height = float(self.cfg["arena"]["height"])
+        distance_to_boundaries = min(vehicle_pos[0], arena_width - vehicle_pos[0], vehicle_pos[1], arena_height - vehicle_pos[1])
+        distance_to_red = np.linalg.norm(vehicle_pos - red_pos)
+        if distance_to_green < 0.5:  # Threshold for being very close to the green robot
+            reward += 10.0  # Reward for being very close to the green robot
+        
+        elif distance_to_boundaries < 0.1:  # Threshold for being very close to the boundaries
+            reward -= 5.0  # Penalty for being very close to the boundaries
+        
+        if distance_to_red < 0.5:  # Threshold for being very close to the red robot
+            reward -= 10.0  # Penalty for being very close to the red robot
+        reward -= 0.1 * distance_to_green  # Encourage getting closer to the green robot
+        reward += 0.05 * distance_to_boundaries  # Encourage staying away from the
+        reward -= 0.05 * distance_to_red  # Encourage staying away from the red robot
+        reward -= 0.01 * self.time  # Small penalty for time to encourage faster completion
+        
+        return reward
+    
+    
+        
         
     def _termination_reason(self) -> tuple[bool, str | None]:
         st = self.vehicle.state
