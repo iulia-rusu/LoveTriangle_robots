@@ -73,10 +73,10 @@ class BraitenbergEnv:
         return self.state,self.last_info
 
     
-    def make_action(duration = 0.5):
+    def make_action(self, duration = 0.5):
         actions = list()
-        for i in range(-50,51,10):
-            for j in range(-50,51,10):
+        for i in range(-int(self.cfg["vehicle"]["max_linear_speed"]),int(self.cfg["vehicle"]["max_linear_speed"])+1,20):
+            for j in range(-int(self.cfg["vehicle"]["max_linear_speed"]),int(self.cfg["vehicle"]["max_linear_speed"])+1,20):
                 action = [i, j]
                 actions.append(action)
         return actions
@@ -152,14 +152,19 @@ class BraitenbergEnv:
         last_x= self.last_info.vehicle_x
         last_y = self.last_info.vehicle_y
         agent_vel = np.sqrt((x-last_x)**2 + (y-last_y)**2)/dt
+        norm_vel = agent_vel/self.cfg["vehicle"]["max_linear_speed"]
         heading_theta = self.vehicle.state.heading
         sin_theta = np.sin(heading_theta)
         cos_theta = np.cos(heading_theta)
         red_x, red_y = self.red_pos
+        norm_red_x = red_x/self.cfg["arena"]["width"]
+        norm_red_y = red_y/self.cfg["arena"]["height"]
+
         green_x, green_y = self.green_pos
+        norm_green_x = green_x/self.cfg["arena"]["width"]
+        norm_green_y = green_y/self.cfg["arena"]["height"]
 
-
-        return np.array([x_norm, y_norm, sin_theta, cos_theta, agent_vel, green_x, green_y,  red_x, red_y])
+        return np.array([x_norm, y_norm, sin_theta, cos_theta, norm_vel, norm_green_x, norm_green_y, norm_red_x, norm_red_y])
     
     def reward_function(self):
         """"Decay reward function considers the distance between the agent and the green robot, as well as the distance to the arena boundaries. The reward is higher when the agent is closer to the green robot and further from the boundaries."""
@@ -170,20 +175,27 @@ class BraitenbergEnv:
         distance_to_green = np.linalg.norm(vehicle_pos - green_pos)
         arena_width = float(self.cfg["arena"]["width"])
         arena_height = float(self.cfg["arena"]["height"])
-        distance_to_boundaries = min(vehicle_pos[0], arena_width - vehicle_pos[0], vehicle_pos[1], arena_height - vehicle_pos[1])
+        half_w = arena_width / 2.0
+        half_h = arena_height / 2.0
+        distance_to_boundaries = min(
+            vehicle_pos[0] + half_w,   # distance from left wall
+            half_w - vehicle_pos[0],   # distance from right wall
+            vehicle_pos[1] + half_h,   # distance from bottom wall
+            half_h - vehicle_pos[1],   # distance from top wall
+        )
         distance_to_red = np.linalg.norm(vehicle_pos - red_pos)
-        if distance_to_green < 0.5:  # Threshold for being very close to the green robot
-            reward += 10.0  # Reward for being very close to the green robot
+        if distance_to_green < 10:  # Threshold for being very close to the green robot
+            reward += 100.0  # Reward for being very close to the green robot
         
-        elif distance_to_boundaries < 0.1:  # Threshold for being very close to the boundaries
-            reward -= 5.0  # Penalty for being very close to the boundaries
+        elif distance_to_boundaries < 5:  # Threshold for being very close to the boundaries
+            reward -= 5.0 * 1/(distance_to_boundaries)  # Penalty grows the closer/further past the wall the agent gets
         
-        if distance_to_red < 0.5:  # Threshold for being very close to the red robot
-            reward -= 10.0  # Penalty for being very close to the red robot
-        reward -= 0.1 * distance_to_green  # Encourage getting closer to the green robot
-        reward += 0.05 * distance_to_boundaries  # Encourage staying away from the
-        reward -= 0.05 * distance_to_red  # Encourage staying away from the red robot
-        reward -= 0.01 * self.time  # Small penalty for time to encourage faster completion
+        if distance_to_red < 10:  # Threshold for being very close to the red robot
+            reward -= 100.0  # Penalty for being very close to the red robot
+        reward-= 0.1 * distance_to_green  # Encourage getting closer to the green robot
+        # reward -= 0.05 * distance_to_boundaries  # Encourage staying away from the
+        reward += 0.05 * distance_to_red  # Encourage staying away from the red robot
+        # reward -= 0.01 * self.time  # Small penalty for time to encourage faster completion
         
         return reward
     

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+import random
 
 import numpy as np
 
@@ -29,21 +30,23 @@ class DifferentialDriveVehicle:
 
     def __init__(self, cfg: dict):
         self.cfg = cfg
-        vcfg = cfg["vehicle"]
-        self.state = VehicleState(
-            x=float(vcfg["start_x"]),
-            y=float(vcfg["start_y"]),
-            heading=float(vcfg["start_heading"]),
-        )
+        self.state = self._random_state()
 
     def reset(self) -> VehicleState:
-        vcfg = self.cfg["vehicle"]
-        self.state = VehicleState(
-            x=float(vcfg["start_x"]),
-            y=float(vcfg["start_y"]),
-            heading=float(vcfg["start_heading"]),
-        )
+        self.state = self._random_state()
         return self.state
+
+    def _random_state(self) -> VehicleState:
+        vcfg = self.cfg["vehicle"]
+        arena = self.cfg["arena"]
+        radius = float(vcfg["radius"])
+        half_w = float(arena["width"]) / 2.0
+        half_h = float(arena["height"]) / 2.0
+        return VehicleState(
+            x=random.uniform(-half_w + radius, half_w - radius),
+            y=random.uniform(-half_h + radius, half_h - radius),
+            heading=random.uniform(-math.pi, math.pi),
+        )
 
     def update(self, left_motor: float, right_motor: float, dt: float) -> VehicleState:
         vcfg = self.cfg["vehicle"]

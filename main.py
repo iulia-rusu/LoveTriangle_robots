@@ -57,7 +57,7 @@ def main() -> None:
                     reward = None
 
         if not paused:
-            _, reward, done, info = env.step(action=None)
+            state, reward, done = env.step(action=None)
 
             if done:
                 print(f"Episode ended: {info.done_reason}", flush=True)
