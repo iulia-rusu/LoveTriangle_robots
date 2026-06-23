@@ -87,24 +87,48 @@ class BraitenbergEnv:
     def step(self, action: np.ndarray | None = None):
         """Advance the simulation by one step using the given action."""
         self.step_idx += 1
+
         dt = float(self.cfg["simulation"]["dt"])
         self.time += dt
-        #action is tensor, convert to numpy array
-        if action is not None:
-            if hasattr(action, "detach"):  # PyTorch tensor
+
+        if action is None:
+            left_motor, right_motor = 0.0, 0.0
+        else:
+            # Convert PyTorch tensor to NumPy
+            if hasattr(action, "detach"):
                 action = action.detach().cpu().numpy()
 
             action = np.asarray(action).squeeze()
-           
-            left_motor = float(action[0])
-            right_motor = float(action[1])
-            left_motor, right_motor = action[0], action[1]
-        else:
-            left_motor, right_motor = 0.0, 0.0
-        self.vehicle.update(left_motor=left_motor, right_motor=right_motor, dt=dt)
-        self.red_pos, self.green_pos = stimulus_positions(self.condition, self.time)
+
+            # Case 1: DQN action index, e.g. tensor([[110]])
+            if action.ndim == 0:
+                action_idx = int(action.item())
+                left_motor, right_motor = self.action_space[action_idx]
+
+            # Case 2: real motor command, e.g. [-30, 10]
+            elif action.size == 2:
+                left_motor, right_motor = action.astype(float)
+
+            else:
+                raise ValueError(f"Invalid action shape/value: {action}")
+
+            left_motor = float(left_motor)
+            right_motor = float(right_motor)
+
+        self.vehicle.update(
+            left_motor=left_motor,
+            right_motor=right_motor,
+            dt=dt
+        )
+
+        self.red_pos, self.green_pos = stimulus_positions(
+            self.condition,
+            self.time
+        )
+
         done, reason = self._termination_reason()
         self.reward = self.reward_function()
+
         self.last_info = StepInfo(
             step=self.step_idx,
             time=self.time,
@@ -114,10 +138,9 @@ class BraitenbergEnv:
             right_motor=self.vehicle.state.right_motor,
             done_reason=reason,
             vehicle_x=self.vehicle.state.x,
-            vehicle_y=self.vehicle.state.y
-
+            vehicle_y=self.vehicle.state.y,
         )
-        
+
         return self.build_state(), self.reward, done
     
     def build_state(self) -> np.ndarray:
