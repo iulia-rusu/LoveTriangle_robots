@@ -3,7 +3,7 @@ seed: 7
 simulation:
   dt: 0.08
   max_steps: 2000
-  condition: blocking # red_only, green_only, separated, blocking, crossing, orbit
+  condition: orbit # red_only, green_only, separated, blocking, crossing, orbit
 
 arena:
   width: 180.0
