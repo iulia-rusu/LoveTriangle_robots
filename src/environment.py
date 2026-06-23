@@ -16,6 +16,8 @@ from .stimuli import stimulus_positions
 class StepInfo:
     step: int
     time: float
+    vehicle_x: float
+    vehicle_y: float
     red_pos: np.ndarray | None
     green_pos: np.ndarray | None
     left_motor: float
@@ -52,7 +54,7 @@ class BraitenbergEnv:
     def step(self, action: np.ndarray | None = None):
         """Advance the simulation by one step using the given action."""
         self.step_idx += 1
-        dt = 0.1  # Fixed time step for now
+        dt = float(self.cfg["simulation"]["dt"])
         self.time += dt
         self.vehicle.update(left_motor=0.0, right_motor=0.0, dt=dt)  # No action for now
         self.red_pos, self.green_pos = stimulus_positions(self.condition, self.time)
@@ -65,6 +67,9 @@ class BraitenbergEnv:
             left_motor=self.vehicle.state.left_motor,
             right_motor=self.vehicle.state.right_motor,
             done_reason=reason,
+            vehicle_x=self.vehicle.state.x,
+            vehicle_y=self.vehicle.state.y
+
         )
         
         return None, 0.0, done, self.last_info
