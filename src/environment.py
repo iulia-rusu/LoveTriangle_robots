@@ -32,6 +32,7 @@ class BraitenbergEnv:
         self.cfg = cfg
         self.condition = condition or cfg["simulation"]["condition"]
         self.vehicle = DifferentialDriveVehicle(cfg)
+        self.rng = np.random.default_rng()
         self.step_idx = 0
         self.time = 0.0
         self.red_pos: np.ndarray | None = None
@@ -98,8 +99,15 @@ class BraitenbergEnv:
 
 
 
-    def step(self, action: np.ndarray | None = None):
-        """Advance the simulation by one step using the given action."""
+    def step(self, action: np.ndarray | None = None, apply_action_noise: bool = False, action_noise_std: float = 0.1):
+        """Advance the simulation by one step using the given action.
+
+        apply_action_noise: if True, perturbs the resolved left/right motor
+        speeds with multiplicative Gaussian noise (std = action_noise_std * |speed|)
+        before applying them, then clips back to the valid speed range. Models
+        real-world motor calibration error for sim-to-real robustness training;
+        off by default so eval/rollout calls are unaffected.
+        """
         self.step_idx += 1
 
         dt = float(self.cfg["simulation"]["dt"])
@@ -128,7 +136,14 @@ class BraitenbergEnv:
 
             left_motor = float(left_motor)
             right_motor = float(right_motor)
-            
+
+        if apply_action_noise:
+            max_speed = float(self.cfg["vehicle"]["max_linear_speed"])
+            left_motor += self.rng.normal(0.0, action_noise_std * abs(left_motor))
+            right_motor += self.rng.normal(0.0, action_noise_std * abs(right_motor))
+            left_motor = float(np.clip(left_motor, -max_speed, max_speed))
+            right_motor = float(np.clip(right_motor, -max_speed, max_speed))
+
         prev_x = self.last_info.vehicle_x if self.last_info is not None else self.vehicle.state.x
         prev_y = self.last_info.vehicle_y if self.last_info is not None else self.vehicle.state.y
 
