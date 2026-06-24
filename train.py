@@ -48,6 +48,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train a DQN policy for BraitenbergEnv.")
     parser.add_argument("--config", type=str, default="config/config.yaml")
     parser.add_argument("--condition", type=str, default=None)
+    parser.add_argument(
+        "--conditions",
+        nargs="+",
+        default=None,
+        help="If given, sample a random condition per episode from this list instead of a single fixed --condition.",
+    )
     parser.add_argument("--out-dir", type=str, default=None)
     parser.add_argument("--run-name", type=str, default=None)
 
@@ -126,7 +132,16 @@ def main() -> None:
 
     cfg = load_config(args.config)
     cfg = apply_overrides(cfg, args.overrides)
-    condition = resolve_condition(cfg, args.condition)
+
+    conditions_list = args.conditions if args.conditions is not None else cfg.get("training", {}).get("conditions", None)
+    multi_condition = bool(conditions_list)
+    if multi_condition:
+        conditions_list = [str(c) for c in conditions_list]
+        condition = resolve_condition(cfg, conditions_list[0])
+        condition_label = "multi-" + "-".join(conditions_list)
+    else:
+        condition = resolve_condition(cfg, args.condition)
+        condition_label = condition
 
     seed = int(args.seed if args.seed is not None else cfg.get("seed", 0))
     if callable(set_seed):
@@ -139,7 +154,7 @@ def main() -> None:
     
     out_dir = Path(choose(args.out_dir, cfg, "training", "out_dir", "outputs/dqn"))
     #add condiiton and timestamp
-    out_dir = out_dir / str(condition)  / datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_dir = out_dir / str(condition_label)  / datetime.now().strftime("%Y%m%d_%H%M%S")
     run_name = choose(args.run_name, cfg, "training", "run_name", None)
     if run_name:
         out_dir = out_dir / str(run_name)
@@ -212,7 +227,9 @@ def main() -> None:
     resolved_training_cfg = {
         "seed": seed,
         "device": str(device),
-        "condition": condition,
+        "condition": condition_label,
+        "multi_condition": multi_condition,
+        "conditions": conditions_list,
         "episodes": num_episodes,
         "batch_size": batch_size,
         "memory_size": memory_size,
@@ -243,13 +260,19 @@ def main() -> None:
     )
 
     print(
-        f"Training on {device}; episodes={num_episodes}; condition={condition}; "
+        f"Training on {device}; episodes={num_episodes}; condition={condition_label}; "
         f"random_start={random_start}; random_heading={random_heading}; action_mode={action_mode}; "
         f"n_actions={n_actions}",
         flush=True,
     )
 
     for episode in range(1, int(num_episodes) + 1):
+        if multi_condition:
+            episode_condition = str(rng.choice(conditions_list))
+            env.condition = episode_condition
+        else:
+            episode_condition = condition
+
         state, _, start_pose = reset_env(
             env,
             cfg,
@@ -292,6 +315,7 @@ def main() -> None:
             metrics_path,
             {
                 "episode": episode,
+                "condition": episode_condition,
                 "reward": total_reward,
                 "duration": duration,
                 "epsilon": agent.epsilon(),

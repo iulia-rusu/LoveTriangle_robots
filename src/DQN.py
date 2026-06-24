@@ -487,9 +487,9 @@ def save_rollout_plot(path: Path, trajectory: dict[str, list[float]], rewards: l
     ax.plot(trajectory["x"][-1], trajectory["y"][-1], "*", markersize=10, label="end")
 
     if trajectory.get("green_x") and trajectory.get("green_y"):
-        ax.plot(trajectory["green_x"][-1], trajectory["green_y"][-1], "^", markersize=8, label="green")
+        ax.plot(trajectory["green_x"][-1], trajectory["green_y"][-1], "^", markersize=8, label="green",color="green")
     if trajectory.get("red_x") and trajectory.get("red_y"):
-        ax.plot(trajectory["red_x"][-1], trajectory["red_y"][-1], "v", markersize=8, label="red")
+        ax.plot(trajectory["red_x"][-1], trajectory["red_y"][-1], "v", markersize=8, label="red",color="red")
 
     half_w = float(cfg["arena"]["width"]) / 2.0
     half_h = float(cfg["arena"]["height"]) / 2.0

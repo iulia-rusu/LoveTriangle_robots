@@ -47,8 +47,8 @@ training:
   start_margin: 15.0
   random_heading: true
 
-  save_every: 2
-  rollout_every: 2
+  save_every: 100
+  rollout_every: 100
 
 policy_run:
   steps: null
@@ -73,7 +73,15 @@ multi_run:
   random_start: true
   start_margin: 15.0
   random_heading: true
-  sweeps: {}
+  multi_condition: true
+  parallel: 4
+  sweeps:
+    training.lr: [0.0001, 0.0003, 0.001]
+    training.eps_decay: [20000, 50000, 100000]
+    training.gamma: [0.95, 0.99]
+    vehicle.max_linear_speed: [20.0, 30.0, 40.0,50.0]
+    simulation.dt: [0.08, 0.1, 0.12,0.16,0.2,0.25]
+
 
 render:
   enabled: true

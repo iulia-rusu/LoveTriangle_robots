@@ -4,6 +4,7 @@ import argparse
 import itertools
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +69,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sweep", action="append", default=[], help="Config sweep, e.g. --sweep vehicle.max_linear_speed=10,20")
     parser.add_argument("--train-script", type=str, default=None, help="Path to train.py. Defaults to train.py next to this file.")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--parallel", type=int, default=None, help="Max number of training runs to execute concurrently. Defaults to 1 (sequential).")
+    parser.add_argument(
+        "--multi-condition",
+        action="store_true",
+        help="Pass the full --conditions list to each run (so it randomizes condition per episode) instead of spawning one run per condition.",
+    )
     return parser.parse_args()
 
 
@@ -87,6 +94,13 @@ def main() -> None:
     )
     seeds = args.seeds if args.seeds is not None else [int(s) for s in cfg_list(launcher_cfg, "seeds", [launcher_cfg.get("seed", 0)])]
 
+    multi_condition = bool(choose(args.multi_condition or None, launcher_cfg, "multi_condition", False))
+    parallel = int(choose(args.parallel, launcher_cfg, "parallel", 1))
+    # itertools.product still needs an iterable for the condition axis; in
+    # multi-condition mode we collapse it to a single "all conditions" entry
+    # so we get one run (per config/seed/sweep combo) instead of one per condition.
+    condition_axis = [tuple(str(c) for c in conditions)] if multi_condition else conditions
+
     sweep_items = [parse_sweep_item(s) for s in args.sweep]
     cfg_sweeps = launcher_cfg.get("multi_run", {}).get("sweeps", {}) or {}
     for key, values in cfg_sweeps.items():
@@ -97,21 +111,27 @@ def main() -> None:
     sweep_combos = list(itertools.product(*sweep_values)) if sweep_items else [()]
 
     commands: list[list[str]] = []
-    for config, condition, seed, combo in itertools.product(configs, conditions, seeds, sweep_combos):
+    for config, condition, seed, combo in itertools.product(configs, condition_axis, seeds, sweep_combos):
         sweep_overrides = [f"{k}={v}" for k, v in zip(sweep_keys, combo)]
         sweep_name = "_".join(slugify(x) for x in sweep_overrides) if sweep_overrides else "base"
         config_name = slugify(Path(str(config)).stem)
-        run_name = f"{config_name}_cond-{slugify(str(condition))}_seed-{seed}_{sweep_name}"
+
+        is_multi = isinstance(condition, tuple)
+        cond_label = "multi-" + "-".join(condition) if is_multi else str(condition)
+        run_name = f"{config_name}_cond-{slugify(cond_label)}_seed-{seed}_{sweep_name}"
         out_dir = out_root / run_name
 
         cmd = [
             sys.executable,
             str(train_script),
             "--config", str(config),
-            "--condition", str(condition),
             "--seed", str(seed),
             "--out-dir", str(out_dir),
         ]
+        if is_multi:
+            cmd += ["--conditions", *condition]
+        else:
+            cmd += ["--condition", str(condition)]
 
         optional_args = {
             "--episodes": choose(args.episodes, launcher_cfg, "episodes", None),
@@ -146,11 +166,32 @@ def main() -> None:
             cmd += ["--set", override]
         commands.append(cmd)
 
-    print(f"Prepared {len(commands)} run(s).")
+    print(f"Prepared {len(commands)} run(s). parallel={parallel}")
     for i, cmd in enumerate(commands, start=1):
-        print(f"\n[{i}/{len(commands)}] {' '.join(cmd)}")
-        if not args.dry_run:
-            subprocess.run(cmd, check=True)
+        print(f"[{i}/{len(commands)}] {' '.join(cmd)}")
+
+    if args.dry_run:
+        return
+
+    def run_one(item: tuple[int, list[str]]) -> int:
+        i, cmd = item
+        print(f"\n[{i}/{len(commands)}] starting", flush=True)
+        result = subprocess.run(cmd)
+        print(f"[{i}/{len(commands)}] finished (exit={result.returncode})", flush=True)
+        return result.returncode
+
+    indexed = list(enumerate(commands, start=1))
+    if parallel <= 1:
+        for item in indexed:
+            code = run_one(item)
+            if code != 0:
+                raise subprocess.CalledProcessError(code, item[1])
+    else:
+        with ThreadPoolExecutor(max_workers=parallel) as pool:
+            codes = list(pool.map(run_one, indexed))
+        failed = [indexed[i][0] for i, code in enumerate(codes) if code != 0]
+        if failed:
+            raise RuntimeError(f"Run(s) {failed} failed (non-zero exit).")
 
 
 if __name__ == "__main__":
