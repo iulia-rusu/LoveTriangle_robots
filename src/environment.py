@@ -47,7 +47,7 @@ class BraitenbergEnv:
     
     
     def state_dim(self) -> int:
-        return 9
+        return 10
 
 
     def reset(
@@ -88,12 +88,21 @@ class BraitenbergEnv:
         return self.state,self.last_info
 
     
-    def make_action(self, duration = 0.5):
-        actions = list()
-        for i in range(-int(self.cfg["vehicle"]["max_linear_speed"]),int(self.cfg["vehicle"]["max_linear_speed"])+1,20):
-            for j in range(-int(self.cfg["vehicle"]["max_linear_speed"]),int(self.cfg["vehicle"]["max_linear_speed"])+1,20):
-                action = [i, j]
-                actions.append(action)
+    def make_action(self, duration=0.5):
+        max_speed = int(self.cfg["vehicle"]["max_linear_speed"])
+        speeds = sorted({0, 20, -20, max_speed, -max_speed}, key=abs, reverse=True)
+
+        def sign(x):
+            return (x > 0) - (x < 0)
+
+        seen_patterns = set()
+        actions = []
+        for i in speeds:
+            for j in speeds:
+                pattern = (sign(i), sign(j))
+                if pattern not in seen_patterns:
+                    seen_patterns.add(pattern)
+                    actions.append([i, j])
         return actions
         
 
@@ -139,8 +148,8 @@ class BraitenbergEnv:
 
         if apply_action_noise:
             max_speed = float(self.cfg["vehicle"]["max_linear_speed"])
-            left_motor += self.rng.normal(0.0, action_noise_std * abs(left_motor))
-            right_motor += self.rng.normal(0.0, action_noise_std * abs(right_motor))
+            left_motor += self.rng.normal(0.0, action_noise_std)
+            right_motor += self.rng.normal(0.0, action_noise_std)
             left_motor = float(np.clip(left_motor, -max_speed, max_speed))
             right_motor = float(np.clip(right_motor, -max_speed, max_speed))
 
@@ -211,6 +220,18 @@ class BraitenbergEnv:
         norm_green_x = green_x / half_w
         norm_green_y = green_y / half_h
 
+
+        #calculate the distance to the boundaries according to orientation of the agent
+        distance_to_boundaries = min(
+            x + half_w,   # distance from left wall
+            half_w - x,   # distance from right wall
+            y + half_h,   # distance from bottom wall
+            half_h - y,   # distance from top wall
+        )
+        #normalize the distance to the boundaries to be in the range [0, 1]
+        norm_distance_to_boundaries = distance_to_boundaries / min(half_w, half_h)
+
+
         return np.array(
             [
                 x_norm,
@@ -222,6 +243,7 @@ class BraitenbergEnv:
                 norm_green_y,
                 norm_red_x,
                 norm_red_y,
+                norm_distance_to_boundaries
             ],
             dtype=np.float32,
         )
@@ -244,13 +266,13 @@ class BraitenbergEnv:
             half_h - vehicle_pos[1],   # distance from top wall
         )
         distance_to_red = np.linalg.norm(vehicle_pos - red_pos)
-        if distance_to_green < 10:  # Threshold for being very close to the green robot
+        if distance_to_green < 20:  # Threshold for being very close to the green robot
             reward += 100.0  # Reward for being very close to the green robot
         
-        elif distance_to_boundaries < 5:  # Threshold for being very close to the boundaries
+        elif distance_to_boundaries < 40:  # Threshold for being very close to the boundaries
             reward -= 5.0 * 1/(distance_to_boundaries)  # Penalty grows the closer/further past the wall the agent gets
         
-        if distance_to_red < 10:  # Threshold for being very close to the red robot
+        if distance_to_red < 20:  # Threshold for being very close to the red robot
             reward -= 100.0  # Penalty for being very close to the red robot
         reward-= 0.1 * distance_to_green  # Encourage getting closer to the green robot
         # reward -= 0.05 * distance_to_boundaries  # Encourage staying away from the

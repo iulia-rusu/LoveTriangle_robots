@@ -265,7 +265,8 @@ def normalise_step_result(result: Any) -> tuple[np.ndarray, float, bool, dict[st
 
 def step_env(env: Any, action_idx: torch.Tensor, action_space: list[Any], action_mode: str) -> tuple[np.ndarray, float, bool, dict[str, Any]]:
     env_action = decode_action(action_idx, action_space, action_mode)
-    return normalise_step_result(env.step(env_action))
+    return normalise_step_result(env.step(env_action,apply_action_noise=True,
+            action_noise_std=0.1))
 
 
 def sample_episode_start(

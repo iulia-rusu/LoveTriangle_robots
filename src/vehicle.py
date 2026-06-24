@@ -54,16 +54,15 @@ class DifferentialDriveVehicle:
         max_speed = float(vcfg["max_linear_speed"])
         wheel_base = float(vcfg["wheel_base"])
 
-        left_motor = float(np.clip(left_motor, -clip, clip))
-        right_motor = float(np.clip(right_motor, -clip, clip))
+       
 
         st = self.state
         st.prev_forward_speed = st.forward_speed
         st.left_motor = left_motor
         st.right_motor = right_motor
 
-        v_left = left_motor * max_speed
-        v_right = right_motor * max_speed
+        v_left = left_motor 
+        v_right = right_motor 
 
         st.forward_speed = 0.5 * (v_left + v_right)
         st.angular_velocity = (v_right - v_left) / max(wheel_base, 1e-6)

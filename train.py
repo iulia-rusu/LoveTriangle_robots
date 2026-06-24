@@ -280,6 +280,7 @@ def main() -> None:
             random_start=random_start,
             start_margin=start_margin,
             random_heading=random_heading,
+            
         )
         state_t = to_state_tensor(state, device)
         total_reward = 0.0

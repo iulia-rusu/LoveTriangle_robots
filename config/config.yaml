@@ -14,9 +14,9 @@ vehicle:
   start_x: 0.0
   start_y: 0.0
   start_heading: 0.0
-  radius: 1.0
+  radius: 20.0
   wheel_base: 0.3
-  max_linear_speed: 60.0
+  max_linear_speed: 30.0
   motor_clip: 1.0
 
   # DQN action grid (step is hardcoded to 20 in BraitenbergEnv.make_action,
@@ -27,12 +27,12 @@ vehicle:
 training:
   out_dir: outputs/dqn
   run_name: null
-  episodes: 10
+  episodes: 5000
   cpu: false
 
   batch_size: 128
   memory_size: 10000
-  gamma: 0.99
+  gamma: 0.95
   eps_start: 0.9
   eps_end: 0.01
   eps_decay: 50000
