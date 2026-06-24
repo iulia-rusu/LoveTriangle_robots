@@ -3,12 +3,11 @@ seed: 7
 simulation:
   dt: 0.08
   max_steps: 2000
-  condition: blocking # red_only, green_only, separated, blocking, crossing, orbit
+  condition: blocking  # red_only, green_only, separated, blocking, crossing, orbit
 
 arena:
   width: 180.0
   height: 240.0
-
 
 vehicle:
   start_x: 0.0
@@ -19,18 +18,32 @@ vehicle:
   max_linear_speed: 20.0
   motor_clip: 1.0
 
-  # DQN action grid
+  # DQN discrete action grid. With max_linear_speed=20 and action_step=20:
+  # motor values are [-20, 0, 20], giving 9 actions.
   action_step: 20.0
-  # This gives motor values [-20, 0, 20], so 9 actions total.
-  # Alternative:
+  # Optional alternative to action_step:
   # motor_values: [-20, 0, 20]
+
+render:
+  enabled: true
+  fps: 60
+  pixels_per_unit: 2   # 95 is too large for width=180, height=240.
+  show_sensor_rays: true
+  show_text: true
+
+logging:
+  enabled: true
+  log_dir: data/logs
+  model_dir: outputs/models
+  figure_dir: outputs/figures
 
 training:
   out_dir: outputs/dqn
-  run_name: null
-  episodes: 10
+  run_name: null 20]
+  episodes: 10000
   cpu: false
 
+  # DQN hyperparameters
   batch_size: 128
   memory_size: 10000
   gamma: 0.99
@@ -41,14 +54,17 @@ training:
   lr: 0.0003
   hidden_dim: 128
 
+  # Use "index" with the environment below, because env.step() accepts a DQN index tensor.
+  # Use "motor" only if your environment expects [left_motor, right_motor] directly.
   env_action_mode: index
 
+  # Start distribution used by train.py and, optionally, run_policy.py.
   random_start: true
   start_margin: 15.0
   random_heading: true
 
-  save_every: 2
-  rollout_every: 2
+  save_every: 100
+  rollout_every: 0
 
 policy_run:
   steps: null
@@ -64,8 +80,6 @@ multi_run:
     - config/config.yaml
   conditions:
     - blocking
-    - orbit
-    - separated
   seeds:
     - 7
   episodes: 5000
@@ -74,16 +88,7 @@ multi_run:
   start_margin: 15.0
   random_heading: true
   sweeps: {}
-
-render:
-  enabled: true
-  fps: 60
-  pixels_per_unit: 2
-  show_sensor_rays: true
-  show_text: true
-
-logging:
-  enabled: true
-  log_dir: data/logs
-  model_dir: outputs/models
-  figure_dir: outputs/figures
+  # Example:
+  # sweeps:
+  #   vehicle.max_linear_speed: [10, 20]
+  #   simulation.max_steps: [1000, 2000]

@@ -46,16 +46,30 @@ class BraitenbergEnv:
     
     
     def state_dim(self) -> int:
-        return 18
+        return 9
 
 
-    def reset(self):
+    def reset(
+    self,
+    random_start: bool = False,
+    rng: np.random.Generator | None = None,
+    start_margin: float | None = None):
         self.action_space = self.make_action()
-        
-        self.vehicle.reset()
-        self.red_pos, self.green_pos = stimulus_positions(self.condition, self.time)
         self.step_idx = 0
         self.time = 0.0
+        self.vehicle.reset()
+        if random_start:
+            rng = rng or np.random.default_rng()
+            arena_w = float(self.cfg["arena"]["width"])
+            arena_h = float(self.cfg["arena"]["height"])
+            radius = float(self.cfg["vehicle"]["radius"])
+            margin = radius if start_margin is None else float(start_margin)
+
+            self.vehicle.state.x = float(rng.uniform(-arena_w / 2 + margin, arena_w / 2 - margin))
+            self.vehicle.state.y = float(rng.uniform(-arena_h / 2 + margin, arena_h / 2 - margin))
+            self.vehicle.state.heading = float(rng.uniform(-np.pi, np.pi))
+        self.red_pos, self.green_pos = stimulus_positions(self.condition, self.time)
+        
         reason = "reset"
         self.last_info = StepInfo(
             step=self.step_idx,
@@ -114,12 +128,16 @@ class BraitenbergEnv:
 
             left_motor = float(left_motor)
             right_motor = float(right_motor)
+            
+        prev_x = self.last_info.vehicle_x if self.last_info is not None else self.vehicle.state.x
+        prev_y = self.last_info.vehicle_y if self.last_info is not None else self.vehicle.state.y
 
-        self.vehicle.update(
-            left_motor=left_motor,
-            right_motor=right_motor,
-            dt=dt
-        )
+        # update vehicle here
+        self.vehicle.update(left_motor=left_motor, right_motor=right_motor, dt=dt)
+
+        # then build state using previous position
+        self.state = self.build_state(prev_x=prev_x, prev_y=prev_y)
+
 
         self.red_pos, self.green_pos = stimulus_positions(
             self.condition,
@@ -143,28 +161,55 @@ class BraitenbergEnv:
 
         return self.build_state(), self.reward, done
     
-    def build_state(self) -> np.ndarray:
-        x = self.vehicle.state.x # need to normalize this
+    def build_state(self, prev_x: float | None = None, prev_y: float | None = None) -> np.ndarray:
+        
+        x = self.vehicle.state.x
         y = self.vehicle.state.y
-        x_norm = x/self.cfg["arena"]["width"]
-        y_norm = y/self.cfg["arena"]["height"]
-        dt = self.cfg["simulation"]["dt"]
-        last_x= self.last_info.vehicle_x
-        last_y = self.last_info.vehicle_y
-        agent_vel = np.sqrt((x-last_x)**2 + (y-last_y)**2)/dt
-        norm_vel = agent_vel/self.cfg["vehicle"]["max_linear_speed"]
+
+        arena_w = float(self.cfg["arena"]["width"])
+        arena_h = float(self.cfg["arena"]["height"])
+        half_w = arena_w / 2.0
+        half_h = arena_h / 2.0
+
+        # centred coordinates: x is in roughly [-half_w, half_w]
+        x_norm = x / half_w
+        y_norm = y / half_h
+
+        dt = float(self.cfg["simulation"]["dt"])
+
+        if prev_x is None or prev_y is None:
+            agent_vel = 0.0
+        else:
+            agent_vel = np.sqrt((x - prev_x) ** 2 + (y - prev_y) ** 2) / dt
+
+        norm_vel = agent_vel / float(self.cfg["vehicle"]["max_linear_speed"])
+
         heading_theta = self.vehicle.state.heading
         sin_theta = np.sin(heading_theta)
         cos_theta = np.cos(heading_theta)
+
         red_x, red_y = self.red_pos
-        norm_red_x = red_x/self.cfg["arena"]["width"]
-        norm_red_y = red_y/self.cfg["arena"]["height"]
-
         green_x, green_y = self.green_pos
-        norm_green_x = green_x/self.cfg["arena"]["width"]
-        norm_green_y = green_y/self.cfg["arena"]["height"]
 
-        return np.array([x_norm, y_norm, sin_theta, cos_theta, norm_vel, norm_green_x, norm_green_y, norm_red_x, norm_red_y])
+        norm_red_x = red_x / half_w
+        norm_red_y = red_y / half_h
+        norm_green_x = green_x / half_w
+        norm_green_y = green_y / half_h
+
+        return np.array(
+            [
+                x_norm,
+                y_norm,
+                sin_theta,
+                cos_theta,
+                norm_vel,
+                norm_green_x,
+                norm_green_y,
+                norm_red_x,
+                norm_red_y,
+            ],
+            dtype=np.float32,
+        )
     
     def reward_function(self):
         """"Decay reward function considers the distance between the agent and the green robot, as well as the distance to the arena boundaries. The reward is higher when the agent is closer to the green robot and further from the boundaries."""
