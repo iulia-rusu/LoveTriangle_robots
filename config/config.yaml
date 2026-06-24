@@ -14,9 +14,9 @@ vehicle:
   start_x: 0.0
   start_y: 0.0
   start_heading: 0.0
-  radius: 10.0
+  radius: 1.0
   wheel_base: 0.3
-  max_linear_speed: 20.0
+  max_linear_speed: 30.0
   motor_clip: 1.0
 
   # DQN action grid

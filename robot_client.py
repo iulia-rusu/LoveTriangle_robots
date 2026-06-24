@@ -9,7 +9,7 @@ Camera (RPi):
   RPi IP:     192.168.0.190, port 5002
   Protocol:   send b'hello' keepalive every 0.5 s → receive raw JPEG datagrams
 
-Requires:  
+Requires:  pip install python-osc opencv-python numpy
 """
 
 import socket
@@ -383,9 +383,9 @@ class OscListener:
     def _recv_loop(self):
         while self._running:
             try:
-                data, _ = self._sock.recvfrom(4096)
+                data, addr = self._sock.recvfrom(4096)
                 address, args = _decode_osc(data)
-                print(f"\n[OscListener:{self.port}] got {address} {args}", flush=True)
+                print(f"[OSC port={self.port}] {addr} {address} {args}")
                 if address in self._handlers:
                     self._handlers[address](args)
             except socket.timeout:

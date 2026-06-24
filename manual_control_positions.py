@@ -94,6 +94,7 @@ def run():
 
     robot_data = [0, 0, 0, 0]
     aux_robots  = [0, 0, 0, 0]
+    corners     = [None, None, None, None]
 
     with RobotClient() as robot, OscListener(port=9000) as positions:
         stop = threading.Event()
@@ -106,8 +107,20 @@ def run():
             aux_robots[:] = args
             _update(robot, robot_data, aux_robots)
 
-        positions.subscribe("/robot",     on_robot)
-        positions.subscribe("/auxrobots", on_aux_robots)
+        def on_corners12(args):
+            corners[0] = (args[0], args[1])
+            corners[1] = (args[2], args[3])
+            print(f"\ncorners12: {args}")
+
+        def on_corners34(args):
+            corners[2] = (args[0], args[1])
+            corners[3] = (args[2], args[3])
+            print(f"\ncorners34: {args}")
+
+        positions.subscribe("/robot",      on_robot)
+        positions.subscribe("/auxrobots",  on_aux_robots)
+        positions.subscribe("/corners12",  on_corners12)
+        positions.subscribe("/corners34",  on_corners34)
 
         def on_press(key):
             ch = _key_char(key)
