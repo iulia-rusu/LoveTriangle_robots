@@ -13,6 +13,7 @@ from typing import Any, Iterable
 
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -503,6 +504,159 @@ def save_rollout_plot(path: Path, trajectory: dict[str, list[float]], rewards: l
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=200)
+    plt.close(fig)
+
+
+def save_reward_distance_plot(
+    path: Path,
+    trajectory: dict[str, list[float]],
+    rewards: list[float],
+    cfg: dict[str, Any],
+    title: str,
+) -> None:
+    """Plot reward against distance to the green stimulus, red stimulus, and
+    nearest wall as three separate panels, for a single greedy rollout.
+    """
+    if not trajectory.get("x") or not rewards:
+        return
+
+    half_w = float(cfg["arena"]["width"]) / 2.0
+    half_h = float(cfg["arena"]["height"]) / 2.0
+
+    xs = np.array(trajectory["x"], dtype=float)
+    ys = np.array(trajectory["y"], dtype=float)
+    rewards_arr = np.array(rewards, dtype=float)
+    pos = np.column_stack([xs, ys])
+
+    def component_reward(name: str) -> np.ndarray:
+        vals = trajectory.get(f"{name}_reward")
+        return np.array(vals, dtype=float) if vals else rewards_arr
+
+    dist_wall = np.minimum.reduce([xs + half_w, half_w - xs, ys + half_h, half_h - ys])[: len(rewards_arr)]
+
+    panels = [("wall", dist_wall, component_reward("wall"), "gray")]
+    if trajectory.get("green_x") and trajectory.get("green_y"):
+        green_xy = np.column_stack([trajectory["green_x"], trajectory["green_y"]])
+        n = min(len(green_xy), len(rewards_arr))
+        panels.append(("green", np.linalg.norm(pos[:n] - green_xy[:n], axis=1), component_reward("green"), "green"))
+    if trajectory.get("red_x") and trajectory.get("red_y"):
+        red_xy = np.column_stack([trajectory["red_x"], trajectory["red_y"]])
+        n = min(len(red_xy), len(rewards_arr))
+        panels.append(("red", np.linalg.norm(pos[:n] - red_xy[:n], axis=1), component_reward("red"), "red"))
+
+    fig, axes = plt.subplots(1, len(panels), figsize=(5 * len(panels), 4))
+    if len(panels) == 1:
+        axes = [axes]
+    for ax, (name, dist, reward_vals, color) in zip(axes, panels):
+        n = min(len(dist), len(reward_vals))
+        ax.plot(dist[:n], reward_vals[:n], "o", markersize=3, color=color)
+        ax.set_xlabel(f"Distance to {name}")
+        ax.set_ylabel(f"{name} reward")
+        ax.set_title(name)
+
+    fig.suptitle(f"{title}: reward={sum(rewards):.2f}, steps={len(rewards)}")
+    fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+
+
+def save_rollout_gifs(
+    path: Path,
+    trajectory: dict[str, list[float]],
+    rewards: list[float],
+    cfg: dict[str, Any],
+    title: str,
+    fps: int = 10,
+) -> None:
+    """Animated counterpart to save_rollout_plot: render the agent's path
+    growing step by step, with the red/green stimuli at their position each
+    step, and write it out as a GIF.
+    """
+    if not trajectory.get("x"):
+        return
+
+    xs = trajectory["x"]
+    ys = trajectory["y"]
+    green_x = trajectory.get("green_x") or []
+    green_y = trajectory.get("green_y") or []
+    red_x = trajectory.get("red_x") or []
+    red_y = trajectory.get("red_y") or []
+
+    half_w = float(cfg["arena"]["width"]) / 2.0
+    half_h = float(cfg["arena"]["height"]) / 2.0
+
+    fig, ax = plt.subplots()
+    ax.set_xlim(-half_w, half_w)
+    ax.set_ylim(half_h, -half_h)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_title(f"{title}: reward={sum(rewards):.2f}, steps={len(rewards)}")
+
+    path_line, = ax.plot([], [], "o-", markersize=2, label="agent")
+    ax.plot(xs[0], ys[0], "s", markersize=8, label="start")
+    current_point, = ax.plot([], [], "*", markersize=10, label="agent (current)")
+    green_point, = ax.plot([], [], "^", markersize=8, label="green")
+    red_point, = ax.plot([], [], "v", markersize=8, label="red")
+    ax.legend()
+    fig.tight_layout()
+
+    def update(frame: int):
+        path_line.set_data(xs[: frame + 1], ys[: frame + 1])
+        current_point.set_data([xs[frame]], [ys[frame]])
+        if frame < len(green_x):
+            green_point.set_data([green_x[frame]], [green_y[frame]])
+        if frame < len(red_x):
+            red_point.set_data([red_x[frame]], [red_y[frame]])
+        return path_line, current_point, green_point, red_point
+
+    anim = animation.FuncAnimation(fig, update, frames=len(xs), blit=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    anim.save(path, writer=animation.PillowWriter(fps=fps))
+    plt.close(fig)
+
+
+def save_reward_over_time_gif(
+    path: Path,
+    trajectory: dict[str, list[float]],
+    rewards: list[float],
+    title: str,
+    fps: int = 10,
+) -> None:
+    """Animate total reward plus the green/red/wall components over time
+    (one line each), growing step by step as the rollout plays out.
+    """
+    if not rewards:
+        return
+
+    steps = np.arange(len(rewards))
+    series = [("total", np.array(rewards, dtype=float), "black")]
+    for name, color in (("green", "tab:green"), ("red", "tab:red"), ("wall", "tab:gray")):
+        vals = trajectory.get(f"{name}_reward")
+        if vals:
+            series.append((name, np.array(vals, dtype=float), color))
+
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, max(len(steps) - 1, 1))
+    all_vals = np.concatenate([vals for _, vals, _ in series])
+    pad = 0.05 * (all_vals.max() - all_vals.min() + 1e-6)
+    ax.set_ylim(all_vals.min() - pad, all_vals.max() + pad)
+    ax.set_xlabel("step")
+    ax.set_ylabel("reward")
+    ax.set_title(title)
+
+    lines = {name: ax.plot([], [], "-", label=name, color=color)[0] for name, _, color in series}
+    ax.legend()
+    fig.tight_layout()
+
+    def update(frame: int):
+        for name, vals, _ in series:
+            lines[name].set_data(steps[: frame + 1], vals[: frame + 1])
+        return list(lines.values())
+
+    anim = animation.FuncAnimation(fig, update, frames=len(steps), blit=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    anim.save(path, writer=animation.PillowWriter(fps=fps))
     plt.close(fig)
 
 

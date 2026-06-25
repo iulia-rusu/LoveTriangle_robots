@@ -3,11 +3,21 @@ seed: 7
 simulation:
   dt: 0.08
   max_steps: 2000
-  condition: orbit # red_only, green_only, separated, blocking, crossing, orbit
+  condition: separated, orbit # red_only, green_only, separated, blocking, crossing, orbit
 
 arena:
   width: 180.0
   height: 240.0
+
+reward:
+  green_hit_threshold: 20.0   # distance from green within which the green bonus applies
+  green_hit_bonus: 1000.0
+  green_shaping_coef: 1000     # per-unit-distance penalty for being far from green (always applied)
+  red_hit_threshold: 20.0     # distance from red within which the red penalty applies
+  red_hit_penalty: 1000.0
+  red_shaping_coef: 1000   # per-unit-distance bonus for being far from red (always applied)
+  wall_threshold: 40.0        # distance from the nearest wall within which the wall penalty applies
+  wall_penalty_coef: 500.0
 
 
 vehicle:
@@ -25,12 +35,12 @@ vehicle:
   # This gives motor values [-60, -40, -20, 0, 20, 40, 60], so 49 actions total.
 
 training:
-  out_dir: outputs/dqn
+  out_dir: outputs/dqn_noise
   run_name: null
-  episodes: 5000
+  episodes: 10000
   cpu: false
 
-  batch_size: 128
+  batch_size: 256
   memory_size: 10000
   gamma: 0.95
   eps_start: 0.9
@@ -46,8 +56,8 @@ training:
   start_margin: 15.0
   random_heading: true
 
-  save_every: 100
-  rollout_every: 100
+  save_every: 1000
+  rollout_every: 1000
 
 policy_run:
   steps: null
@@ -62,12 +72,10 @@ multi_run:
   configs:
     - config/config.yaml
   conditions:
-    - blocking
-    - orbit
-    - separated
+    - random
   seeds:
     - 7
-  episodes: 5000
+  episodes: 100000
   out_root: outputs/dqn_runs
   random_start: true
   start_margin: 15.0
@@ -75,11 +83,9 @@ multi_run:
   multi_condition: true
   parallel: 4
   sweeps:
-    training.lr: [0.0001, 0.0003, 0.001]
-    training.eps_decay: [20000, 50000, 100000]
-    training.gamma: [0.95, 0.99]
-    vehicle.max_linear_speed: [20.0, 30.0, 40.0,50.0]
-    simulation.dt: [0.08, 0.1, 0.12,0.16,0.2,0.25]
+  
+
+
 
 
 render:

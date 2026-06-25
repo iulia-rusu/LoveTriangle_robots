@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import itertools
 import subprocess
 import sys
@@ -111,9 +112,21 @@ def main() -> None:
     sweep_combos = list(itertools.product(*sweep_values)) if sweep_items else [()]
 
     commands: list[list[str]] = []
-    for config, condition, seed, combo in itertools.product(configs, condition_axis, seeds, sweep_combos):
+    for combo_idx, (config, condition, seed, combo) in enumerate(
+        itertools.product(configs, condition_axis, seeds, sweep_combos)
+    ):
         sweep_overrides = [f"{k}={v}" for k, v in zip(sweep_keys, combo)]
-        sweep_name = "_".join(slugify(x) for x in sweep_overrides) if sweep_overrides else "base"
+        if not sweep_overrides:
+            sweep_name = "base"
+        else:
+            # A literal concatenation of every sweep override (e.g. 8+ dotted
+            # reward.* keys) blows past Windows' ~260-char MAX_PATH once
+            # nested under out_root/.../<condition>/<timestamp>/checkpoints/
+            # *.pt, causing mkdir to fail with WinError 3. Hash it instead —
+            # the actual override values are still fully recorded in each
+            # run's run_config.json (cli_args.overrides), just not in the path.
+            digest = hashlib.md5("_".join(sweep_overrides).encode()).hexdigest()[:10]
+            sweep_name = f"sweep-{combo_idx:04d}-{digest}"
         config_name = slugify(Path(str(config)).stem)
 
         is_multi = isinstance(condition, tuple)

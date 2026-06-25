@@ -13,6 +13,7 @@ from typing import Any, Iterable
 
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -265,7 +266,8 @@ def normalise_step_result(result: Any) -> tuple[np.ndarray, float, bool, dict[st
 
 def step_env(env: Any, action_idx: torch.Tensor, action_space: list[Any], action_mode: str) -> tuple[np.ndarray, float, bool, dict[str, Any]]:
     env_action = decode_action(action_idx, action_space, action_mode)
-    return normalise_step_result(env.step(env_action))
+    return normalise_step_result(env.step(env_action,apply_action_noise=True,
+            action_noise_std=0.1))
 
 
 def sample_episode_start(
@@ -487,9 +489,9 @@ def save_rollout_plot(path: Path, trajectory: dict[str, list[float]], rewards: l
     ax.plot(trajectory["x"][-1], trajectory["y"][-1], "*", markersize=10, label="end")
 
     if trajectory.get("green_x") and trajectory.get("green_y"):
-        ax.plot(trajectory["green_x"][-1], trajectory["green_y"][-1], "^", markersize=8, label="green",color="green")
+        ax.plot(trajectory["green_x"][-1], trajectory["green_y"][-1], "^", markersize=8, label="green")
     if trajectory.get("red_x") and trajectory.get("red_y"):
-        ax.plot(trajectory["red_x"][-1], trajectory["red_y"][-1], "v", markersize=8, label="red",color="red")
+        ax.plot(trajectory["red_x"][-1], trajectory["red_y"][-1], "v", markersize=8, label="red")
 
     half_w = float(cfg["arena"]["width"]) / 2.0
     half_h = float(cfg["arena"]["height"]) / 2.0
@@ -502,6 +504,61 @@ def save_rollout_plot(path: Path, trajectory: dict[str, list[float]], rewards: l
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=200)
+    plt.close(fig)
+
+
+def save_rollout_gifs(
+    path: Path,
+    trajectory: dict[str, list[float]],
+    rewards: list[float],
+    cfg: dict[str, Any],
+    title: str,
+    fps: int = 10,
+) -> None:
+    """Animated counterpart to save_rollout_plot: render the agent's path
+    growing step by step, with the red/green stimuli at their position each
+    step, and write it out as a GIF.
+    """
+    if not trajectory.get("x"):
+        return
+
+    xs = trajectory["x"]
+    ys = trajectory["y"]
+    green_x = trajectory.get("green_x") or []
+    green_y = trajectory.get("green_y") or []
+    red_x = trajectory.get("red_x") or []
+    red_y = trajectory.get("red_y") or []
+
+    half_w = float(cfg["arena"]["width"]) / 2.0
+    half_h = float(cfg["arena"]["height"]) / 2.0
+
+    fig, ax = plt.subplots()
+    ax.set_xlim(-half_w, half_w)
+    ax.set_ylim(half_h, -half_h)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_title(f"{title}: reward={sum(rewards):.2f}, steps={len(rewards)}")
+
+    path_line, = ax.plot([], [], "o-", markersize=2, label="agent")
+    ax.plot(xs[0], ys[0], "s", markersize=8, label="start")
+    current_point, = ax.plot([], [], "*", markersize=10, label="agent (current)")
+    green_point, = ax.plot([], [], "^", markersize=8, label="green")
+    red_point, = ax.plot([], [], "v", markersize=8, label="red")
+    ax.legend()
+    fig.tight_layout()
+
+    def update(frame: int):
+        path_line.set_data(xs[: frame + 1], ys[: frame + 1])
+        current_point.set_data([xs[frame]], [ys[frame]])
+        if frame < len(green_x):
+            green_point.set_data([green_x[frame]], [green_y[frame]])
+        if frame < len(red_x):
+            red_point.set_data([red_x[frame]], [red_y[frame]])
+        return path_line, current_point, green_point, red_point
+
+    anim = animation.FuncAnimation(fig, update, frames=len(xs), blit=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    anim.save(path, writer=animation.PillowWriter(fps=fps))
     plt.close(fig)
 
 

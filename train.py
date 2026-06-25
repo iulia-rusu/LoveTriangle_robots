@@ -28,6 +28,8 @@ from dqn_common import (
     save_checkpoint,
     save_json,
     save_policy,
+    save_reward_distance_plot,
+    save_rollout_gifs,
     save_rollout_plot,
     save_training_curves,
     seed_everything,
@@ -103,11 +105,15 @@ def run_greedy_rollout(
 
     trajectory = {"x": [], "y": [], "red_x": [], "red_y": [], "green_x": [], "green_y": []}
     rewards: list[float] = []
+    reward_components: dict[str, list[float]] = {"green": [], "red": [], "wall": []}
 
     for _ in range(max_steps):
         action_idx = agent.select_action(state_t, explore=False)
         observation, reward, terminated, _ = step_env(env, action_idx, action_space, action_mode)
         rewards.append(float(reward))
+        components = getattr(env, "last_reward_components", {})
+        for key in reward_components:
+            reward_components[key].append(float(components.get(key, 0.0)))
 
         x, y = get_vehicle_xy(env)
         trajectory["x"].append(x)
@@ -124,6 +130,7 @@ def run_greedy_rollout(
         state_t = to_state_tensor(observation, device)
 
     agent.policy_net.train()
+    trajectory.update({f"{key}_reward": vals for key, vals in reward_components.items()})
     return trajectory, rewards
 
 
@@ -350,6 +357,20 @@ def main() -> None:
             )
             save_rollout_plot(
                 figure_dir / f"rollout_ep{episode:06d}.png",
+                trajectory,
+                rollout_rewards,
+                cfg,
+                title=f"Episode {episode} rollout",
+            )
+            save_reward_distance_plot(
+                figure_dir / f"reward_distance_ep{episode:06d}.png",
+                trajectory,
+                rollout_rewards,
+                cfg,
+                title=f"Episode {episode} rollout",
+            )
+            save_rollout_gifs(
+                figure_dir / f"rollout_ep{episode:06d}.gif",
                 trajectory,
                 rollout_rewards,
                 cfg,

@@ -41,6 +41,7 @@ class BraitenbergEnv:
         self.action_space = None  
         self.state = None  # Initialize the state attribute
         self.reward = 0.0  # Initialize the reward attribute
+        self.last_reward_components = {"green": 0.0, "red": 0.0, "wall": 0.0}
 
     @property
     
@@ -231,6 +232,9 @@ class BraitenbergEnv:
         #normalize the distance to the boundaries to be in the range [0, 1]
         norm_distance_to_boundaries = distance_to_boundaries / min(half_w, half_h)
 
+       
+
+
 
         return np.array(
             [
@@ -250,8 +254,19 @@ class BraitenbergEnv:
     
     def reward_function(self):
         """"Decay reward function considers the distance between the agent and the green robot, as well as the distance to the arena boundaries. The reward is higher when the agent is closer to the green robot and further from the boundaries."""
+        # Tunable via cfg['reward'] (see config/config.yaml); defaults below
+        # match this function's original hardcoded values.
+        reward_cfg = self.cfg.get("reward", {})
+        green_hit_threshold = float(reward_cfg.get("green_hit_threshold", 20.0))
+        green_hit_bonus = float(reward_cfg.get("green_hit_bonus", 100.0))
+        green_shaping_coef = float(reward_cfg.get("green_shaping_coef", 0.1))
+        red_hit_threshold = float(reward_cfg.get("red_hit_threshold", 20.0))
+        red_hit_penalty = float(reward_cfg.get("red_hit_penalty", 100.0))
+        red_shaping_coef = float(reward_cfg.get("red_shaping_coef", 0.05))
+        wall_threshold = float(reward_cfg.get("wall_threshold", 40.0))
+        wall_penalty_coef = float(reward_cfg.get("wall_penalty_coef", 5.0))
+
         reward = 0.0
-        # Adjust this factor to control the decay rate
         red_pos, green_pos = self.red_pos, self.green_pos
         vehicle_pos = np.array([self.vehicle.state.x, self.vehicle.state.y])
         distance_to_green = np.linalg.norm(vehicle_pos - green_pos)
@@ -266,19 +281,30 @@ class BraitenbergEnv:
             half_h - vehicle_pos[1],   # distance from top wall
         )
         distance_to_red = np.linalg.norm(vehicle_pos - red_pos)
-        if distance_to_green < 20:  # Threshold for being very close to the green robot
-            reward += 100.0  # Reward for being very close to the green robot
-        
-        elif distance_to_boundaries < 40:  # Threshold for being very close to the boundaries
-            reward -= 5.0 * 1/(distance_to_boundaries)  # Penalty grows the closer/further past the wall the agent gets
-        
-        if distance_to_red < 20:  # Threshold for being very close to the red robot
-            reward -= 100.0  # Penalty for being very close to the red robot
-        reward-= 0.1 * distance_to_green  # Encourage getting closer to the green robot
-        # reward -= 0.05 * distance_to_boundaries  # Encourage staying away from the
-        reward += 0.05 * distance_to_red  # Encourage staying away from the red robot
+
+        eps = 1e-6  # avoid divide-by-zero when the vehicle sits right on top of a stimulus
+
+        green_component = green_shaping_coef / (distance_to_green + eps)  # closer to green -> larger reward
+        wall_component = 0.0
+        if distance_to_green < green_hit_threshold:  # Threshold for being very close to the green robot
+            green_component += green_hit_bonus  # Reward for being very close to the green robot
+
+        elif distance_to_boundaries < wall_threshold:  # Threshold for being very close to the boundaries
+            wall_component -= wall_penalty_coef * 1 / distance_to_boundaries  # Penalty grows the closer/further past the wall the agent gets
+
+        red_component = -red_shaping_coef / (distance_to_red + eps)  # closer to red -> larger penalty
+        if distance_to_red < red_hit_threshold:  # Threshold for being very close to the red robot
+            red_component -= red_hit_penalty  # Penalty for being very close to the red robot
         # reward -= 0.01 * self.time  # Small penalty for time to encourage faster completion
-        
+
+        # Individual components, so callers (e.g. rollout plots) can inspect
+        # the green/red/wall contributions separately instead of just the sum.
+        self.last_reward_components = {
+            "green": float(green_component),
+            "red": float(red_component),
+            "wall": float(wall_component),
+        }
+        reward = green_component + red_component + wall_component
         return reward
     
     

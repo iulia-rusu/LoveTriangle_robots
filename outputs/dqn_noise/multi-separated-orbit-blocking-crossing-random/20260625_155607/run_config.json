@@ -1,0 +1,197 @@
+{
+  "cli_args": {
+    "config": "config/config.yaml",
+    "condition": null,
+    "conditions": [
+      "separated",
+      "orbit",
+      "blocking",
+      "crossing",
+      "random"
+    ],
+    "out_dir": null,
+    "run_name": null,
+    "episodes": null,
+    "seed": null,
+    "cpu": null,
+    "batch_size": null,
+    "memory_size": null,
+    "gamma": null,
+    "eps_start": null,
+    "eps_end": null,
+    "eps_decay": null,
+    "tau": null,
+    "lr": null,
+    "hidden_dim": null,
+    "env_action_mode": null,
+    "random_start": null,
+    "start_margin": null,
+    "random_heading": null,
+    "save_every": null,
+    "rollout_every": null,
+    "overrides": []
+  },
+  "resolved_training": {
+    "seed": 7,
+    "device": "cuda",
+    "condition": "multi-separated-orbit-blocking-crossing-random",
+    "multi_condition": true,
+    "conditions": [
+      "separated",
+      "orbit",
+      "blocking",
+      "crossing",
+      "random"
+    ],
+    "episodes": 5000,
+    "batch_size": 256,
+    "memory_size": 10000,
+    "gamma": 0.95,
+    "eps_start": 0.9,
+    "eps_end": 0.01,
+    "eps_decay": 50000,
+    "tau": 0.005,
+    "lr": 0.0003,
+    "hidden_dim": 128,
+    "env_action_mode": "index",
+    "random_start": true,
+    "start_margin": 15.0,
+    "random_heading": true,
+    "save_every": 1000,
+    "rollout_every": 1000,
+    "n_observations": 10,
+    "n_actions": 9,
+    "action_space": [
+      [
+        -30,
+        -30
+      ],
+      [
+        -30,
+        30
+      ],
+      [
+        -30,
+        0
+      ],
+      [
+        30,
+        -30
+      ],
+      [
+        30,
+        30
+      ],
+      [
+        30,
+        0
+      ],
+      [
+        0,
+        -30
+      ],
+      [
+        0,
+        30
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "config_after_overrides": {
+    "seed": 7,
+    "simulation": {
+      "dt": 0.08,
+      "max_steps": 500,
+      "condition": "separated"
+    },
+    "arena": {
+      "width": 180.0,
+      "height": 240.0
+    },
+    "reward": {
+      "green_hit_threshold": 20.0,
+      "green_hit_bonus": 1000.0,
+      "green_shaping_coef": 1000,
+      "red_hit_threshold": 20.0,
+      "red_hit_penalty": 1000.0,
+      "red_shaping_coef": 1000,
+      "wall_threshold": 40.0,
+      "wall_penalty_coef": 500.0
+    },
+    "vehicle": {
+      "start_x": 18.764319990700045,
+      "start_y": 83.41489820361085,
+      "start_heading": 1.7321842783482628,
+      "radius": 20.0,
+      "wheel_base": 0.3,
+      "max_linear_speed": 30.0,
+      "motor_clip": 1.0,
+      "action_step": 20.0
+    },
+    "training": {
+      "out_dir": "outputs/dqn_noise",
+      "run_name": null,
+      "episodes": 5000,
+      "cpu": false,
+      "batch_size": 256,
+      "memory_size": 10000,
+      "gamma": 0.95,
+      "eps_start": 0.9,
+      "eps_end": 0.01,
+      "eps_decay": 50000,
+      "tau": 0.005,
+      "lr": 0.0003,
+      "hidden_dim": 128,
+      "env_action_mode": "index",
+      "random_start": true,
+      "start_margin": 15.0,
+      "random_heading": true,
+      "save_every": 1000,
+      "rollout_every": 1000
+    },
+    "policy_run": {
+      "steps": null,
+      "random_start": false,
+      "start_margin": 15.0,
+      "random_heading": true,
+      "render": false,
+      "pixels_per_unit": 2,
+      "out": "outputs/dqn/figures/policy_rollout.png"
+    },
+    "multi_run": {
+      "configs": [
+        "config/config.yaml"
+      ],
+      "conditions": [
+        "random"
+      ],
+      "seeds": [
+        7
+      ],
+      "episodes": 100000,
+      "out_root": "outputs/dqn_runs",
+      "random_start": true,
+      "start_margin": 15.0,
+      "random_heading": true,
+      "multi_condition": true,
+      "parallel": 4,
+      "sweeps": null
+    },
+    "render": {
+      "enabled": true,
+      "fps": 60,
+      "pixels_per_unit": 2,
+      "show_sensor_rays": true,
+      "show_text": true
+    },
+    "logging": {
+      "enabled": true,
+      "log_dir": "data/logs",
+      "model_dir": "outputs/models",
+      "figure_dir": "outputs/figures"
+    }
+  }
+}

@@ -1,0 +1,238 @@
+{
+  "cli_args": {
+    "config": "config/config.yaml",
+    "condition": null,
+    "conditions": [
+      "random"
+    ],
+    "out_dir": "outputs\\dqn_runs\\config_cond-multi-random_seed-7_sweep-0090-446ab66ed1",
+    "run_name": null,
+    "episodes": 10000,
+    "seed": 7,
+    "cpu": null,
+    "batch_size": null,
+    "memory_size": null,
+    "gamma": null,
+    "eps_start": null,
+    "eps_end": null,
+    "eps_decay": null,
+    "tau": null,
+    "lr": null,
+    "hidden_dim": null,
+    "env_action_mode": null,
+    "random_start": true,
+    "start_margin": 15.0,
+    "random_heading": true,
+    "save_every": null,
+    "rollout_every": null,
+    "overrides": [
+      "training.lr=0.001",
+      "reward.green_hit_threshold=10.0",
+      "reward.green_hit_bonus=100.0",
+      "reward.green_shaping_coef=0.2",
+      "reward.red_hit_threshold=10.0",
+      "reward.red_hit_penalty=150.0",
+      "reward.red_shaping_coef=0.05",
+      "reward.wall_threshold=10.0",
+      "reward.wall_penalty_coef=5.0"
+    ]
+  },
+  "resolved_training": {
+    "seed": 7,
+    "device": "cuda",
+    "condition": "multi-random",
+    "multi_condition": true,
+    "conditions": [
+      "random"
+    ],
+    "episodes": 10000,
+    "batch_size": 128,
+    "memory_size": 10000,
+    "gamma": 0.95,
+    "eps_start": 0.9,
+    "eps_end": 0.01,
+    "eps_decay": 50000,
+    "tau": 0.005,
+    "lr": 0.001,
+    "hidden_dim": 128,
+    "env_action_mode": "index",
+    "random_start": true,
+    "start_margin": 15.0,
+    "random_heading": true,
+    "save_every": 100,
+    "rollout_every": 100,
+    "n_observations": 10,
+    "n_actions": 9,
+    "action_space": [
+      [
+        -30,
+        -30
+      ],
+      [
+        -30,
+        30
+      ],
+      [
+        -30,
+        0
+      ],
+      [
+        30,
+        -30
+      ],
+      [
+        30,
+        30
+      ],
+      [
+        30,
+        0
+      ],
+      [
+        0,
+        -30
+      ],
+      [
+        0,
+        30
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "config_after_overrides": {
+    "seed": 7,
+    "simulation": {
+      "dt": 0.08,
+      "max_steps": 2000,
+      "condition": "random"
+    },
+    "arena": {
+      "width": 180.0,
+      "height": 240.0
+    },
+    "reward": {
+      "green_hit_threshold": 10.0,
+      "green_hit_bonus": 100.0,
+      "green_shaping_coef": 0.2,
+      "red_hit_threshold": 10.0,
+      "red_hit_penalty": 150.0,
+      "red_shaping_coef": 0.05,
+      "wall_threshold": 10.0,
+      "wall_penalty_coef": 5.0
+    },
+    "vehicle": {
+      "start_x": 18.764319990700045,
+      "start_y": 83.41489820361085,
+      "start_heading": 1.7321842783482628,
+      "radius": 20.0,
+      "wheel_base": 0.3,
+      "max_linear_speed": 30.0,
+      "motor_clip": 1.0,
+      "action_step": 20.0
+    },
+    "training": {
+      "out_dir": "outputs/dqn_noise",
+      "run_name": null,
+      "episodes": 5000,
+      "cpu": false,
+      "batch_size": 128,
+      "memory_size": 10000,
+      "gamma": 0.95,
+      "eps_start": 0.9,
+      "eps_end": 0.01,
+      "eps_decay": 50000,
+      "tau": 0.005,
+      "lr": 0.001,
+      "hidden_dim": 128,
+      "env_action_mode": "index",
+      "random_start": true,
+      "start_margin": 15.0,
+      "random_heading": true,
+      "save_every": 100,
+      "rollout_every": 100
+    },
+    "policy_run": {
+      "steps": null,
+      "random_start": false,
+      "start_margin": 15.0,
+      "random_heading": true,
+      "render": false,
+      "pixels_per_unit": 2,
+      "out": "outputs/dqn/figures/policy_rollout.png"
+    },
+    "multi_run": {
+      "configs": [
+        "config/config.yaml"
+      ],
+      "conditions": [
+        "random"
+      ],
+      "seeds": [
+        7
+      ],
+      "episodes": 10000,
+      "out_root": "outputs/dqn_runs",
+      "random_start": true,
+      "start_margin": 15.0,
+      "random_heading": true,
+      "multi_condition": true,
+      "parallel": 4,
+      "sweeps": {
+        "training.lr": [
+          0.001
+        ],
+        "reward.green_hit_threshold": [
+          10.0,
+          20.0
+        ],
+        "reward.green_hit_bonus": [
+          100.0,
+          150.0
+        ],
+        "reward.green_shaping_coef": [
+          0.1,
+          0.2,
+          0.3
+        ],
+        "reward.red_hit_threshold": [
+          10.0,
+          20.0
+        ],
+        "reward.red_hit_penalty": [
+          100.0,
+          150.0
+        ],
+        "reward.red_shaping_coef": [
+          0.05,
+          0.1,
+          0.2
+        ],
+        "reward.wall_threshold": [
+          10.0,
+          20.0,
+          40.0
+        ],
+        "reward.wall_penalty_coef": [
+          5.0,
+          10.0
+        ]
+      }
+    },
+    "render": {
+      "enabled": true,
+      "fps": 60,
+      "pixels_per_unit": 2,
+      "show_sensor_rays": true,
+      "show_text": true
+    },
+    "logging": {
+      "enabled": true,
+      "log_dir": "data/logs",
+      "model_dir": "outputs/models",
+      "figure_dir": "outputs/figures"
+    }
+  }
+}
